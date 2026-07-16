@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, "feature/**"]
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --no-install-workspace
+
+      - name: Lint (ruff)
+        run: |
+          uv run ruff check src/ recipes/ cookbook/
+          uv run ruff format --check src/ recipes/ cookbook/
+
+      - name: Shellcheck recipes
+        run: |
+          sudo apt-get install -y shellcheck
+          find recipes -name "run.sh" -exec shellcheck {} +
+
+      - name: Recipe structure
+        run: |
+          ok=true
+          for d in recipes/*/; do
+            [ -d "$d" ] || continue
+            name=$(basename "$d")
+            if [ ! -f "$d/run.sh" ]; then
+              echo "FAIL: recipes/$name/ missing run.sh"
+              ok=false
+            fi
+            if [ ! -f "$d/README.md" ]; then
+              echo "FAIL: recipes/$name/ missing README.md"
+              ok=false
+            fi
+            if [ -f "$d/README.md" ] && [ ! -s "$d/README.md" ]; then
+              echo "FAIL: recipes/$name/README.md is empty"
+              ok=false
+            fi
+          done
+          $ok
+
+      - name: Import check (src/)
+        run: |
+          if ls src/*.py 1>/dev/null 2>&1; then
+            for f in src/*.py; do
+              mod=$(basename "$f" .py)
+              echo "Checking import: src.$mod"
+              uv run python -c "import importlib; importlib.import_module('src.$mod')" || exit 1
+            done
+          else
+            echo "No src/ modules to check"
+          fi
+
+      - name: pyproject.toml valid
+        run: uv sync --dry-run

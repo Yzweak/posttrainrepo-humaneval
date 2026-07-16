@@ -1,0 +1,60 @@
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# ===== Virtual environments =====
+.venv/
+venv/
+env/
+
+# ===== Training outputs (judge 重跑会重建,不进 git) =====
+outputs/
+checkpoints/
+
+# ===== Model weights (通过 $MODEL_PATH 引用,不进 git) =====
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+*.gguf
+
+# ===== Data files (run.sh 负责获取,不进 git) =====
+# 原则:数据获取逻辑写在 src/ 或 run.sh 里,数据文件本身不 commit。
+# 小型配置文件(几 KB 的 yaml/json)可以进 git,大文件不行。
+*.jsonl
+*.parquet
+*.arrow
+*.csv
+*.tsv
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.tar
+*.tar.gz
+*.zip
+
+# ===== HuggingFace cache =====
+.cache/
+
+# ===== Logs =====
+*.log
+wandb/
+runs/
+tensorboard/
+
+# ===== System =====
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.code-workspace

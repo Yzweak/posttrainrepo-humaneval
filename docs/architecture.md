@@ -1,22 +1,24 @@
-# 架构说明
+# Architecture
 
-## 目录
+## Directories
 
-- `src/`:通用模块。多个 recipe 共享的代码放这里(data loader, reward function, LoRA merge 工具等)。
-- `recipes/`:每次实验的独立快照。每个子目录有 `run.sh` + `README.md`。
-- `docs/`:你正在读的文档。描述 repo 本身怎么用。
-- `cookbook/`:可跑的代码片段和踩坑记录。
+- `src/`: shared modules. Code used by multiple recipes goes here (data loaders,
+  reward functions, LoRA merge utilities, etc.).
+- `recipes/`: one self-contained snapshot per experiment. Each subdirectory has
+  `run.sh` + `README.md`.
+- `docs/`: the docs you're reading. They describe how the repo itself works.
+- `cookbook/`: runnable snippets and gotchas.
 
-## src/ 使用约定
+## src/ conventions
 
-src/ 里的模块被 recipe 的 run.sh 引用。在 run.sh 里:
+Modules in `src/` are imported by a recipe's `run.sh`. In run.sh:
 
 ```bash
-cd "$(dirname "$0")/../.."   # 回到 repo 根
+cd "$(dirname "$0")/../.."   # back to repo root
 uv sync
 uv run python src/train.py --model_path "$MODEL_PATH" --output_dir "$OUTPUT_DIR"
 ```
 
-新增模块时请确保:
-1. 能被 `python -c "import src.<module>"` 正常导入
-2. 没有硬编码路径,通过参数/环境变量传入
+When adding a module, make sure it:
+1. imports cleanly via `uv run python -c "import src.<module>"`
+2. has no hard-coded paths — pass them via arguments / environment variables

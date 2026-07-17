@@ -18,11 +18,12 @@ recipes/      one self-contained snapshot per experiment (append, never overwrit
 
 ## How to use it
 
-1. Read `docs/` for the evaluation mechanism and base model
-2. Browse `recipes/` for prior experiments (if any)
-3. Create a new directory under `recipes/` for your experiment
-4. Write `run.sh` (must satisfy the contract below) + `README.md`
-5. Add or reuse shared modules in `src/` as needed
+1. Read `program.md` for the research direction to pursue
+2. Read `docs/` for the evaluation mechanism and base model
+3. Browse `recipes/` for prior experiments (if any)
+4. Create a new directory under `recipes/` for your experiment
+5. Write `run.sh` (must satisfy the contract below) + `README.md`
+6. Add or reuse shared modules in `src/` as needed
 
 ## run.sh contract
 

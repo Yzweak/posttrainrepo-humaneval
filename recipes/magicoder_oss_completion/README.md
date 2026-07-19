@@ -31,4 +31,6 @@ def function_name(args):
 
 ## Results
 
-Pending judge evaluation.
+- Local full HumanEval pass@1 with stricter context filtering: `0.4390`.
+- First judge run before the stricter filter commit: job `6b8df670-faa5-4bf8-b794-2bbd19fd90a6`, candidate `0.408537`, baseline `0.3780`, delta `+0.0305`.
+- Current stricter-filter recipe pending judge evaluation.

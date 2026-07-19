@@ -29,4 +29,5 @@ MBPP uses the existing anchor templates. Magicoder rows use native instruction-t
 
 ## Results
 
-Pending local or judge evaluation.
+- Local full HumanEval pass@1: `0.4207`.
+- This native-format control underperformed the completion-format local run (`0.4390`) and the prior low-LR mixed-data anchor (`0.4451`).

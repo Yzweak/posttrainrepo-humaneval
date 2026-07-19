@@ -13,18 +13,44 @@ After you run `bash submit.sh <recipe>`, the judge, in the background:
 1. `git clone`s your repo (committed files only) and runs
    `recipes/<recipe>/run.sh` from a clean copy
 2. run.sh must leave a checkpoint in `$OUTPUT_DIR` loadable by `from_pretrained()`
-3. Evaluates that checkpoint with lm-eval:
+3. Evaluates that checkpoint with lm-eval, **run inside your recipe's own `uv`
+   environment** (with a pinned lm-eval overlaid), so the exact transformers your
+   recipe used to train and save the checkpoint is the one that loads it:
 
    ```bash
-   lm_eval run --model hf \
-     --model_args pretrained=$OUTPUT_DIR,dtype=bfloat16,trust_remote_code=True \
-     --tasks humaneval --limit 164 \
-     --confirm_run_unsafe_code
+   uv run --project <your repo> --with "lm-eval[hf]==0.4.12" -- \
+     lm_eval run --model hf \
+       --model_args pretrained=$OUTPUT_DIR,dtype=bfloat16,trust_remote_code=True \
+       --tasks humaneval --limit 164 \
+       --confirm_run_unsafe_code
    ```
 
 4. Reads the `pass@1,create_test` metric
-5. **Score = your checkpoint's pass@1 − base model's pass@1** (the baseline is
-   evaluated once and cached)
+5. **Score = your checkpoint's absolute pass@1** (0–1). The base model's pass@1
+   is evaluated once and reported only as a diagnostic reference — your reward is
+   NOT baseline-subtracted.
+
+## Evaluation environment (this affects your deps)
+
+Because eval runs from **your** environment, your `pyproject.toml` must resolve
+together with `lm-eval[hf]==0.4.12`. lm-eval only needs `transformers>=4.1` (no
+upper bound), so it won't fight your transformers — but a hard pin on
+`transformers`/`datasets`/`numpy` that conflicts with lm-eval will stop the
+recipe-env eval (the judge then falls back to the system lm-eval and may hit a
+transformers-version mismatch on your saved tokenizer). Keep deps compatible.
+
+**Self-check before submitting** (fast, `--limit 2`) — run exactly what the judge
+runs and confirm it scores:
+
+```bash
+cd /workspace/posttrainrepo
+uv run --with "lm-eval[hf]==0.4.12" -- \
+  lm_eval run --model hf \
+    --model_args pretrained=$OUTPUT_DIR,dtype=bfloat16,trust_remote_code=True \
+    --tasks humaneval --limit 2 --confirm_run_unsafe_code
+# Can't resolve or errors? Your deps conflict with the eval stack — loosen the
+# offending pin in pyproject.toml before submitting.
+```
 
 ## What you need to know
 

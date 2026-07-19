@@ -1,8 +1,15 @@
 [project]
 name = "posttrainrepo"
 version = "0.1.0"
-requires-python = ">=3.12"
-dependencies = []
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "accelerate>=1.2,<2",
+    "datasets>=3.0,<5",
+    "peft>=0.14,<1",
+    "torch>=2.4,<3",
+    "transformers>=4.52,<5",
+    "trl>=0.19,<1",
+]
 
 # Dev-only tooling (lint in CI). Kept out of [project.dependencies] so the
 # agent's training environment stays clean — declare training deps with `uv add`.
@@ -15,3 +22,13 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["sitecustomize"]
+
+[tool.setuptools.packages.find]
+include = ["src*"]

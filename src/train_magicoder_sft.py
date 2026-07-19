@@ -20,6 +20,7 @@ from src.train_mbpp_sft import (
     _looks_like_humaneval_leak,
     _plain_prompt,
     build_mbpp_examples,
+    build_python_instruction_examples,
 )
 
 _FENCE_RE = re.compile(r"```(?:python|py)?\s*\n(.*?)```", re.IGNORECASE | re.DOTALL)
@@ -166,6 +167,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--work-dir", default="outputs/magicoder_sft")
     parser.add_argument("--seed", type=int, default=13)
     parser.add_argument("--magicoder-limit", type=int, default=2500)
+    parser.add_argument("--python-instruction-limit", type=int, default=0)
     parser.add_argument("--magicoder-mode", choices=("completion", "native"), default="completion")
     parser.add_argument("--max-steps", type=int, default=200)
     parser.add_argument("--learning-rate", type=float, default=1e-4)
@@ -192,8 +194,16 @@ def main() -> None:
 
     mbpp = build_mbpp_examples(args.seed)
     magicoder = build_magicoder_oss_examples(args.seed, args.magicoder_limit, args.magicoder_mode)
-    train_dataset = concatenate_datasets([mbpp, magicoder]).shuffle(seed=args.seed)
-    print(f"training examples: mbpp={len(mbpp)} magicoder={len(magicoder)} total={len(train_dataset)}")
+    python_instruction = build_python_instruction_examples(args.seed, args.python_instruction_limit)
+    datasets_to_concat = [mbpp, magicoder]
+    if len(python_instruction) > 0:
+        datasets_to_concat.append(python_instruction)
+    train_dataset = concatenate_datasets(datasets_to_concat).shuffle(seed=args.seed)
+    print(
+        "training examples: "
+        f"mbpp={len(mbpp)} magicoder={len(magicoder)} "
+        f"python_instruction={len(python_instruction)} total={len(train_dataset)}"
+    )
 
     model = AutoModelForCausalLM.from_pretrained(
         args.model_path,

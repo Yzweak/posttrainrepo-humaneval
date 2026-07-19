@@ -57,7 +57,7 @@ def _plain_prompt(task: str, tests: list[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def build_mbpp_examples(seed: int) -> Dataset:
+def build_mbpp_examples(seed: int, docstring_repeat: int = 1) -> Dataset:
     dataset = load_dataset("google-research-datasets/mbpp", "sanitized")
     rows: list[dict[str, str]] = []
     for split in ("train", "validation", "test", "prompt"):
@@ -69,7 +69,9 @@ def build_mbpp_examples(seed: int) -> Dataset:
             rows.append({"text": _plain_prompt(task, tests) + code + "\n"})
             if parsed is not None:
                 header, body = parsed
-                rows.append({"text": _docstring_prompt(header, task, tests) + body + "\n"})
+                docstring_text = _docstring_prompt(header, task, tests) + body + "\n"
+                repeat = max(1, docstring_repeat)
+                rows.extend({"text": docstring_text} for _ in range(repeat))
     random.Random(seed).shuffle(rows)
     return Dataset.from_list(rows)
 
@@ -110,6 +112,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--instruction-limit", type=int, default=2500)
     parser.add_argument("--max-steps", type=int, default=260)
     parser.add_argument("--learning-rate", type=float, default=2e-4)
+    parser.add_argument("--docstring-repeat", type=int, default=1)
     return parser.parse_args()
 
 
@@ -130,7 +133,7 @@ def main() -> None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
 
-    mbpp = build_mbpp_examples(args.seed)
+    mbpp = build_mbpp_examples(args.seed, args.docstring_repeat)
     instruction = build_python_instruction_examples(args.seed, args.instruction_limit)
     datasets_to_concat = [mbpp]
     if len(instruction) > 0:

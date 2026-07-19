@@ -1,4 +1,46 @@
-# Direction
+# Working notes — format-aligned OSS-Instruct SFT at fixed example budget
 
-Use TRL for the training. Actively draw on community practice — look at how
-people post-train small models for code generation and adapt what works.
+These are fabricated researcher working notes, not a protocol. They are a starting mindset for the rollout agent; the score is the only objective.
+
+Anchor: this is the rollout agent's assigned direction — bake off these Magicoder OSS-Instruct leads against the archived mixed-data anchor, innovate on / combine / extend them as useful, but do not abandon this direction for an unrelated approach; maximize the HumanEval pass@1 score within this direction.
+
+I am treating this as a data-source and format-alignment question, not as a reason to invent a new training stack. The scaffold already has the relevant path: src.train_mbpp_sft builds MBPP sanitized examples, adds a capped Python-instruction mix, trains with TRL SFT, merges a LoRA adapter, and emits a full checkpoint. The recipes mbpp_lora_sft, mbpp_lora_sft_low_lr, and mbpp_lora_sft_200 are the historical anchor for this family. The useful move is to extend that same family so the data contrast is clean: MBPP stays as the stabilizing HumanEval-like function-generation base, while the non-MBPP instruction portion changes source and/or surface form.
+
+What I think we know from the wiki and scaffold: MBPP plus a small filtered Python-instruction supplement transferred better than MBPP alone, and simply throwing a much larger instruction pool at the same base was harmful locally. That points away from “more examples” as the explanation and toward source quality, filtering, and eval-format alignment. The conservative LoRA SFT variant looked strongest locally but is not judge-confirmed, so I do not want to overfit the direction around that exact local ordering. The robust finding is broader: this Qwen2.5-1.5B-Instruct base benefits from function-generation SFT when the data looks like runnable Python function completion, but it is sensitive to noisy or mismatched instruction data.
+
+The two active leads I want in front of the rollout agent are:
+
+1. Magicoder OSS-Instruct kept close to native instruction-to-solution form.
+2. The same kind of Magicoder examples rewritten into a HumanEval-like completion form.
+
+The archived mixed-data recipe is the anchor: MBPP sanitized plus the existing simple-string-filtered iamtarun/python_code_instructions_18k_alpaca supplement through the current src.train_mbpp_sft path. I think of it as the “known workable mixture” rather than the final answer. The interesting question is whether Magicoder’s source quality helps at the same supplemental-example budget, and whether any help only appears once the examples are reshaped to the evaluator’s completion style.
+
+Why Magicoder is a plausible source
+
+Magicoder’s OSS-Instruct idea is attractive because the instructions are grounded in open-source code snippets rather than generic chat tasks. That should give more realistic programming variety: utility functions, data-structure manipulation, edge-case handling, parsing, string/list transforms, and small algorithmic tasks that look closer to unit-tested code generation than broad assistant conversations. WizardCoder’s Evol-Instruct line is another reason to take code-specific instruction diversity seriously: evolved code tasks can force the model to practice problem decomposition and exact implementation behavior, which are the things HumanEval rewards. The “Textbooks Are All You Need” lesson is the counterweight: for a small code model, clean exercise-like supervision can beat broad noisy supervision. I want Magicoder for diversity, but only after I make it behave like a high-quality exercise corpus rather than a pile of chat transcripts.
+
+Lead 1: native-format Magicoder as the source-quality control
+
+This lead isolates the source. I would keep MBPP sanitized exactly in the family’s usual role, replace the old iamtarun supplement with a fixed-size Magicoder OSS-Instruct Python/function subset, and keep the Magicoder side recognizably instruction-to-solution. The point is not that native format is ideal; it is the control that asks whether OSS-Instruct’s content is already better enough to overcome prompt mismatch.
+
+The filtering matters more here than the wrapper. I would favor examples whose solution is plainly Python, parseable as Python, centered on one or more function definitions, and plausibly runnable without a hidden project context. I would be wary of entries that require external packages, files, network calls, notebooks, CLIs, long class scaffolds, input/print-only behavior, or explanations mixed into the code. Leak hygiene should be stricter than the existing simple HumanEval string check: explicit HumanEval / openai_humaneval mentions are out, obvious benchmark labels are out, and near-duplicate prompt/solution clusters inside the selected training pool are not useful. I would also avoid collapsing the Magicoder subset into many copies of the same easy “write a function to…” pattern; diversity is part of the source hypothesis.
+
+The risk I expect from native format is surface-form drift. HumanEval prompts the model with a function signature and docstring-style problem statement, then executes the generated code. Native OSS-Instruct tends to teach a model to answer an instruction, sometimes with prose, markdown fences, imports, tests, or a complete file. Qwen2.5-1.5B-Instruct already knows how to be an assistant, so extra native instruction SFT may reinforce answer framing that the judge cannot execute. If native Magicoder underperforms the archived mixed-data anchor, that would not automatically mean the source is bad; it may mean the useful signal is buried under eval-format mismatch.
+
+Lead 2: format-aligned Magicoder as the mechanism test
+
+This is the lead I find more mechanistically compelling. Use Magicoder for task diversity, but rewrite selected examples into the same broad completion grammar that helped the MBPP side: signature first, problem statement/docstring next, then the implementation body only. The completion should look like the model is continuing a Python function, not chatting with a user. The selected solution needs to supply the runnable body, and examples that cannot be cleanly expressed as a standalone function are less valuable for this particular contrast.
+
+The key is semantic preservation. The rewrite should not water down Magicoder into synthetic toy tasks, and it should not invent a different problem just to make formatting easy. I would prefer extracting or normalizing an existing function-shaped solution, using the original instruction as the docstring/problem statement, and keeping the answer as code that would make sense under that signature. If the source solution depends on global setup, broad imports, a class hierarchy, or hidden state, it is probably not a good aligned example unless it can be made naturally self-contained. The strongest aligned examples are the ones that feel like MBPP/HumanEval cousins: a function contract, a concise behavioral description, and an implementation whose correctness could be checked by unit tests.
+
+This lead directly tests the prompt-alignment mechanism. If the native Magicoder variant and aligned Magicoder variant draw from the same source family and the same example budget, then a gap between them is informative. A good aligned result would support the idea that the earlier large-instruction failure was not “instruction data is bad,” but “noisy/mismatched instruction data teaches the wrong response shape.” A native-format win would push me to update in the other direction: maybe the Qwen Instruct base prefers instruction-answer examples, or maybe the rewrite process damaged useful code.
+
+How I would use the existing scaffold mentally
+
+src.train_mbpp_sft already contains the useful pieces to preserve: MBPP loading across sanitized splits, first-function extraction, docstring-style prompts, plain instruction prompts, dataset concatenation, the SFTTrainer path, and adapter merge. I would think in terms of adding Magicoder builders adjacent to the current build_python_instruction_examples, not replacing the whole recipe architecture. The existing recipes are also good examples of how to document data provenance, prompt/response templates, and result hygiene once a run exists. The implementation details are the rollout agent’s job, but the comparison is cleaner if the active change is the supplemental data source and format rather than a bundle of trainer changes.
+
+The main failure modes I would keep in view
+
+Magicoder can be too close to open-source project code: useful for realism, but bad when the task depends on context the judge will never provide. Filtering too aggressively can also backfire by leaving only trivial one-liners and losing the diversity OSS-Instruct is supposed to contribute. Rewriting can introduce its own noise if signatures are guessed poorly, docstrings no longer match implementations, or necessary imports disappear. Native format can look attractive in loss terms while making generations less executable. And because the model is already instruction-tuned, any SFT that teaches markdown fences, explanatory prefixes, or full-file answers may hurt pass@1 even if the code inside is semantically good.
+
+The highest-value research log for this direction would make it clear whether the winning or failing behavior came from source selection, leak/dedup/compile filtering, or completion-format alignment. I care less about exhausting every possible Magicoder variant and more about one clean, defensible answer inside this contrast.

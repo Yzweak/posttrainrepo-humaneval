@@ -41,4 +41,4 @@ Additional instruction template:
 
 ## Results
 
-Pending judge feedback. Record `job_id`, base pass@1, candidate pass@1, and delta after submission.
+Judge job `a1a64daa-0f92-4050-8ee7-c4ee97b52563`: baseline `0.3780`, candidate `0.426829`, delta `+0.0488`. Local full HumanEval pass@1 was `0.4207`.

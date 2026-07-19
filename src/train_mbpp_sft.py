@@ -80,6 +80,8 @@ def _looks_like_humaneval_leak(text: str) -> bool:
 
 
 def build_python_instruction_examples(seed: int, limit: int) -> Dataset:
+    if limit <= 0:
+        return Dataset.from_list([])
     dataset = load_dataset("iamtarun/python_code_instructions_18k_alpaca", split="train")
     rows: list[dict[str, str]] = []
     for item in dataset:
@@ -130,7 +132,10 @@ def main() -> None:
 
     mbpp = build_mbpp_examples(args.seed)
     instruction = build_python_instruction_examples(args.seed, args.instruction_limit)
-    train_dataset = concatenate_datasets([mbpp, instruction]).shuffle(seed=args.seed)
+    datasets_to_concat = [mbpp]
+    if len(instruction) > 0:
+        datasets_to_concat.append(instruction)
+    train_dataset = concatenate_datasets(datasets_to_concat).shuffle(seed=args.seed)
 
     model = AutoModelForCausalLM.from_pretrained(
         args.model_path,

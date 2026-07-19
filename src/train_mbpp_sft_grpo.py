@@ -93,7 +93,7 @@ def _safe_exec(code: str, namespace: dict[str, Any], timeout: float) -> bool:
         signal.signal(signal.SIGALRM, previous)
 
 
-def staged_execution_reward(
+def _score_completions(
     prompts: list[str],
     completions: list[str],
     test_imports: list[list[str]],
@@ -133,6 +133,29 @@ def staged_execution_reward(
     return rewards
 
 
+def staged_execution_reward(
+    prompts: list[str],
+    completions: list[str],
+    test_imports: list[list[str]],
+    test_list: list[list[str]],
+    entry_point: list[str],
+    **kwargs: Any,
+) -> list[float]:
+    return _score_completions(prompts, completions, test_imports, test_list, entry_point, **kwargs)
+
+
+def binary_execution_reward(
+    prompts: list[str],
+    completions: list[str],
+    test_imports: list[list[str]],
+    test_list: list[list[str]],
+    entry_point: list[str],
+    **kwargs: Any,
+) -> list[float]:
+    staged = _score_completions(prompts, completions, test_imports, test_list, entry_point, **kwargs)
+    return [1.0 if reward >= 1.49 else 0.0 for reward in staged]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", required=True)
@@ -146,6 +169,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--grpo-learning-rate", type=float, default=5e-6)
     parser.add_argument("--num-generations", type=int, default=4)
     parser.add_argument("--reward-limit", type=int, default=0)
+    parser.add_argument("--reward-mode", choices=("staged", "binary"), default="staged")
     return parser.parse_args()
 
 
@@ -247,9 +271,10 @@ def main() -> None:
         beta=0.02,
         loss_type="dr_grpo",
     )
+    reward_func = staged_execution_reward if args.reward_mode == "staged" else binary_execution_reward
     grpo_trainer = GRPOTrainer(
         model=model,
-        reward_funcs=staged_execution_reward,
+        reward_funcs=reward_func,
         args=grpo_args,
         train_dataset=grpo_dataset,
         processing_class=tokenizer,
